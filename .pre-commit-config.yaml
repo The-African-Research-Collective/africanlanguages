@@ -1,0 +1,28 @@
+default_stages: [pre-commit]
+default_language_version:
+  python: python3
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.8.19
+    hooks:
+      - id: uv-lock
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.1
+    hooks:
+      - id: ruff
+        name: ruff-lint
+        args: [--fix, --exit-non-zero-on-fix, --show-fixes]
+      - id: ruff-format
+
+  # This hook is additional protection and can be easily bypassed by using the `--no-verify` flag.
+  - repo: local
+    hooks:
+      - id: prevent-push-to-main
+        name: Prevent Push to Main
+        entry: bash -c 'if [ "$PRE_COMMIT_REMOTE_BRANCH" = "refs/heads/main" ]; then echo "Pushing to main is not allowed."; exit 1; fi'
+        language: system
+        stages: [pre-push]
