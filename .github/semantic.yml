@@ -1,0 +1,16 @@
+# Only validate the PR title, ignore the commits because we squash them.
+titleOnly: true
+# The values allowed for the "type" part of the PR title/commit message. e.g. for a PR title/commit message of "feat: add some stuff", the type would be "feat"
+types:
+  - feat
+  - fix
+  - docs
+  - style
+  - refactor
+  - perf
+  - test
+  - build
+  - ci
+  - chore
+  - revert
+  - exp
