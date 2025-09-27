@@ -67,8 +67,8 @@ class TestConvenienceFunctions:
         assert len(results) >= 1
 
         # Should find Yoruba by its Glottocode
-        aari_found = any(lang.codes.iso639_3 == "yor" for lang in results)
-        assert aari_found
+        yoruba_found = any(lang.codes.iso639_3 == "yor" for lang in results)
+        assert yoruba_found
 
     def test_search_languages_with_no_results(self):
         """Test searching with a query that returns no results"""

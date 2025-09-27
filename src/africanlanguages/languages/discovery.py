@@ -59,11 +59,3 @@ class LanguageDiscovery:
     def query(self) -> LanguageQuery:
         """Start a new query"""
         return LanguageQuery(self.registry)
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get overall statistics about languages"""
-        return {}
-
-    def random_language(self, **filters) -> Optional[Language]:
-        """Get a random language matching filters"""
-        pass
