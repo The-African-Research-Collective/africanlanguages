@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional, List, Dict, Set
-from enum import Enum
+from typing import Any, Dict, List, Optional
+
 
 @dataclass
 class GeographicInfo:
     """Geographic information for a language"""
+
     countries: List[str] = field(default_factory=list)
     regions: List[str] = field(default_factory=list)
     coordinates: Optional[Dict[str, float]] = None  # lat, lng
@@ -13,12 +14,15 @@ class GeographicInfo:
 @dataclass
 class LanguageCodes:
     """Various language code systems"""
+
     iso639_3: Optional[str] = None
     glottocode: Optional[str] = None
+
 
 @dataclass
 class Language:
     """Main language data model"""
+
     name: str
     codes: LanguageCodes
     geographic: GeographicInfo = field(default_factory=GeographicInfo)

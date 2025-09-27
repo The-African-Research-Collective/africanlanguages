@@ -1,13 +1,15 @@
 """
 africanlanguages - A comprehensive Python package for African language processing
 """
-from typing import List, Optional
-from .languages.models import Language
-from .languages.discovery import LanguageDiscovery
 
+from typing import List, Optional
+
+from .languages.discovery import LanguageDiscovery
+from .languages.models import Language
 
 # Main interfaces
 languages = LanguageDiscovery()
+
 
 # Convenience functions
 def get_all_languages() -> List[Language]:
@@ -38,4 +40,3 @@ def get_languages_by_region(region: str) -> List[Language]:
 def get_language_count() -> int:
     """Get the total number of languages in the database"""
     return languages.query().count()
-

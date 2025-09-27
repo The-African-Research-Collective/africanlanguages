@@ -1,18 +1,23 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
+
 from .base import Singleton
+
 
 @dataclass
 class DataPaths:
     """Configuration for data file paths"""
+
     languages_db: Path = Path("data/languages.json")
+
 
 @dataclass
 class PackageConfig:
     """Main package configuration"""
+
     data_paths: DataPaths = field(default_factory=DataPaths)
-    log_level: str = "INFO"
+
 
 class ConfigManager(metaclass=Singleton):
     """Global configuration manager"""
@@ -27,7 +32,7 @@ class ConfigManager(metaclass=Singleton):
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value"""
-        keys = key.split('.')
+        keys = key.split(".")
         value = self.config
         try:
             for k in keys:
@@ -38,7 +43,7 @@ class ConfigManager(metaclass=Singleton):
 
     def set(self, key: str, value: Any) -> None:
         """Set configuration value"""
-        keys = key.split('.')
+        keys = key.split(".")
         obj = self.config
         for k in keys[:-1]:
             if not hasattr(obj, k):

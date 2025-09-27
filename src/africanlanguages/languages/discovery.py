@@ -1,6 +1,8 @@
-from typing import List, Optional, Callable, Dict, Any
+from typing import Callable, List, Optional
+
 from .models import Language
 from .registry import LanguageRegistry
+
 
 class LanguageQuery:
     """Fluent query interface for language discovery"""
@@ -10,20 +12,22 @@ class LanguageQuery:
         self._filters: List[Callable[[Language], bool]] = []
         self._results: Optional[List[Language]] = None
 
-    def by_country(self, country: str) -> 'LanguageQuery':
+    def by_country(self, country: str) -> "LanguageQuery":
         """Filter by country"""
         self._filters.append(lambda lang: lang.in_country(country))
         return self
 
-    def by_region(self, region: str) -> 'LanguageQuery':
+    def by_region(self, region: str) -> "LanguageQuery":
         """Filter by region"""
         self._filters.append(lambda lang: region in lang.geographic.regions)
         return self
 
-    def with_speakers_above(self, count: int) -> 'LanguageQuery':
+    def with_speakers_above(self, count: int) -> "LanguageQuery":
         """Filter by minimum speaker count"""
+
         def filter_func(lang):
             return (lang.demographic.speaker_count or 0) >= count
+
         self._filters.append(filter_func)
         return self
 
@@ -49,6 +53,7 @@ class LanguageQuery:
             if all(f(language) for f in self._filters):
                 results.append(language)
         return results
+
 
 class LanguageDiscovery:
     """Main interface for language discovery"""

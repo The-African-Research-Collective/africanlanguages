@@ -1,8 +1,10 @@
-import africanlanguages
-from africanlanguages import get_all_languages, search_languages, get_language_count
-from cyclopts import App
 from pprint import pprint
 from typing import Optional
+
+from cyclopts import App
+
+import africanlanguages
+from africanlanguages import get_all_languages, get_language_count, search_languages
 
 app = App()
 
@@ -11,7 +13,7 @@ app = App()
 def main():
     """Main entrypoint - shows basic information"""
     count = get_language_count()
-    print(f"African Languages Database")
+    print("African Languages Database")
     print(f"Total languages: {count}")
     print("Use --help to see available commands")
 
@@ -58,6 +60,7 @@ def info(code: str):
         pprint(lang)
     else:
         print(f"Language with code '{code}' not found")
+
 
 if __name__ == "__main__":
     app()
