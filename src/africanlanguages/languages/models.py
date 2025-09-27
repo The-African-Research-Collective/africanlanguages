@@ -31,20 +31,37 @@ class Language:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
-        """Validate and normalize data after initialization"""
+        """
+        Validate and normalize data after initialization.
+        """
         self._validate()
 
     def _validate(self) -> None:
-        """Validate language data consistency"""
+        """
+        Validate language data consistency.
+        """
         if not self.name:
             raise ValueError("Language name is required")
         if not (self.codes.iso639_3 or self.codes.glottocode):
             raise ValueError("At least one language code (ISO 639-3 or Glottocode) is required")
 
     def get_primary_code(self) -> Optional[str]:
-        """Get the primary language code (prefer ISO 639-3)"""
+        """
+        Get the primary language code (prefer ISO 639-3).
+
+        Returns:
+            Optional[str]: The primary language code, or None.
+        """
         return self.codes.iso639_3 or self.codes.glottocode
 
     def in_country(self, country: str) -> bool:
-        """Check if language is spoken in a country"""
+        """
+        Check if language is spoken in a country.
+
+        Args:
+            country: The country name to check.
+
+        Returns:
+            bool: True if the language is spoken in the country.
+        """
         return country in self.geographic.countries

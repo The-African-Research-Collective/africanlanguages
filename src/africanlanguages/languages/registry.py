@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Set
 
 from ..core.base import Singleton
@@ -12,17 +11,21 @@ class LanguageRegistry(metaclass=Singleton):
     """Central registry for all languages"""
 
     def __init__(self):
+        """
+        Initialize the language registry.
+        """
         self._languages: Dict[str, Language] = {}
         self._indexes: Dict[str, Dict[str, Set[str]]] = {}
         self._loaded = False
 
-    def _load_data(self, data_path: Optional[str] = None) -> None:
-        """Load language data from JSON file"""
+    def _load_data(self) -> None:
+        """
+        Load language data from JSON file.
+        """
         if self._loaded:
             return
 
-        config = ConfigManager()
-        path = Path(data_path) if data_path else config.config.data_paths.languages_db
+        path = ConfigManager().config.data_paths.languages_db
 
         if not path.exists():
             raise DataLoadError(f"Language data file not found: {path}")
@@ -47,7 +50,15 @@ class LanguageRegistry(metaclass=Singleton):
             raise DataLoadError(f"Failed to load language data: {e}") from e
 
     def _create_language_from_json(self, item: dict) -> Optional[Language]:
-        """Create Language object from JSON item"""
+        """
+        Create Language object from JSON item.
+
+        Args:
+            item: Dictionary containing language data from JSON.
+
+        Returns:
+            Optional[Language]: Language object if valid, None otherwise.
+        """
         try:
             from .models import GeographicInfo, LanguageCodes
 
@@ -71,7 +82,15 @@ class LanguageRegistry(metaclass=Singleton):
             return None
 
     def get_language(self, code: str) -> Optional[Language]:
-        """Get language by any valid code"""
+        """
+        Get language by any valid code.
+
+        Args:
+            code: The language code to search for.
+
+        Returns:
+            Optional[Language]: The language if found, None otherwise.
+        """
         if not self._loaded:
             self._load_data()
 
@@ -87,7 +106,9 @@ class LanguageRegistry(metaclass=Singleton):
         return None
 
     def _build_indexes(self) -> None:
-        """Build search indexes for fast queries"""
+        """
+        Build search indexes for fast queries.
+        """
         self._indexes = {"codes": {}, "names": {}}
 
         for lang_code, language in self._languages.items():
@@ -107,13 +128,26 @@ class LanguageRegistry(metaclass=Singleton):
                 self._indexes["names"].setdefault(alt_lower, set()).add(lang_code)
 
     def get_all_languages(self) -> Iterator[Language]:
-        """Get all languages as iterator"""
+        """
+        Get all languages as iterator.
+
+        Returns:
+            Iterator[Language]: An iterator over all languages.
+        """
         if not self._loaded:
             self._load_data()
         return iter(self._languages.values())
 
     def search(self, query: str) -> List[Language]:
-        """Search languages by name or code"""
+        """
+        Search languages by name or code.
+
+        Args:
+            query: The search query string.
+
+        Returns:
+            List[Language]: List of matching languages.
+        """
         if not self._loaded:
             self._load_data()
 
