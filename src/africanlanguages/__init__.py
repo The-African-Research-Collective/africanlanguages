@@ -22,6 +22,11 @@ def get_all_languages() -> List[Language]:
     return list(languages.registry.get_all_languages())
 
 
+# TODO:
+def get_all_language_families():
+    pass
+
+
 def get_language_by_code(code: str) -> Optional[Language]:
     """
     Get a language by its ISO 639-3 or Glottocode.

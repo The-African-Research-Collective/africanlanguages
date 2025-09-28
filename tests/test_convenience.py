@@ -1,3 +1,5 @@
+import pytest
+
 from africanlanguages import (
     get_all_languages,
     get_language_by_code,
@@ -22,25 +24,32 @@ class TestConvenienceFunctions:
         for lang in languages:
             assert isinstance(lang, Language)
 
-    def test_get_language_by_code_with_valid_iso_code(self):
+    @pytest.mark.parametrize(
+        "iso_code,expected_name",
+        [
+            ("yor", "Yoruba"),
+            ("ibo", "Igbo"),
+            ("zul", "Zulu"),
+        ],
+    )
+    def test_get_language_by_code_with_valid_iso_code(self, iso_code, expected_name):
         """Test getting a language by valid ISO 639-3 code"""
-        # Test with a known language from the data (Yoruba - yor)
-        language = get_language_by_code("yor")
-
+        language = get_language_by_code(iso_code)
         assert language is not None
         assert isinstance(language, Language)
-        assert language.name == "Yoruba"
-        assert language.codes.iso639_3 == "yor"
+        assert language.name == expected_name
+        assert language.codes.iso639_3 == iso_code
 
-    def test_get_language_by_code_with_valid_glottocode(self):
+    @pytest.mark.parametrize("glotto_lang_code,lang_name", [("yoru1245", "Yoruba"), ("pula1262", "Pular")])
+    def test_get_language_by_code_with_valid_glottocode(self, glotto_lang_code, lang_name):
         """Test getting a language by valid Glottocode"""
         # Test with Yoruba's glottocode
-        language = get_language_by_code("yoru1245")
+        language = get_language_by_code(glotto_lang_code)
 
         assert language is not None
         assert isinstance(language, Language)
-        assert language.name == "Yoruba"
-        assert language.codes.glottocode == "yoru1245"
+        assert language.name == lang_name
+        assert language.codes.glottocode == glotto_lang_code
 
     def test_get_language_by_code_with_invalid_code(self):
         """Test getting a language by invalid code returns None"""

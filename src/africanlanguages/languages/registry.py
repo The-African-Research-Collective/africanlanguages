@@ -15,6 +15,9 @@ class LanguageRegistry(metaclass=Singleton):
         Initialize the language registry.
         """
         self._languages: Dict[str, Language] = {}
+
+        # TODO: Build the index using a TRIE: https://en.wikipedia.org/wiki/Trie
+        # To facilitate all forms of complex searches
         self._indexes: Dict[str, Dict[str, Set[str]]] = {}
         self._loaded = False
 
