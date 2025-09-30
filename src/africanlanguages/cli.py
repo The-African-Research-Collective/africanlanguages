@@ -4,7 +4,7 @@ from typing import Optional
 from cyclopts import App
 
 import africanlanguages
-from africanlanguages import get_all_languages, get_language_count, search_languages
+from africanlanguages import get_all_language_families, get_all_languages, get_language_count, search_languages
 
 app = App()
 
@@ -79,6 +79,17 @@ def info(code: str):
         pprint(lang)
     else:
         print(f"Language with code '{code}' not found")
+
+
+@app.command()
+def families():
+    """
+    List all language families.
+    """
+    families_list = get_all_language_families()
+    print(f"Found {len(families_list)} language families:")
+    for family in families_list:
+        print(f"  - {family}")
 
 
 if __name__ == "__main__":

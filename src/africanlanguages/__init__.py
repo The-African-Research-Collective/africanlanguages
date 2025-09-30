@@ -22,9 +22,19 @@ def get_all_languages() -> List[Language]:
     return list(languages.registry.get_all_languages())
 
 
-# TODO:
-def get_all_language_families():
-    pass
+def get_all_language_families() -> List[str]:
+    """
+    Get all unique language families.
+
+    Returns:
+        List[str]: A list of all unique language families.
+    """
+    families = set()
+    for lang in languages.registry.get_all_languages():
+        family = lang.metadata.get("family")
+        if family:
+            families.add(family)
+    return sorted(families)
 
 
 def get_language_by_code(code: str) -> Optional[Language]:

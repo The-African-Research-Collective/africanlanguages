@@ -1,6 +1,7 @@
 import pytest
 
 from africanlanguages import (
+    get_all_language_families,
     get_all_languages,
     get_language_by_code,
     get_language_count,
@@ -131,3 +132,30 @@ class TestConvenienceFunctions:
                 found_by_code = get_language_by_code(primary_code)
                 assert found_by_code is not None
                 assert found_by_code.name == first_lang.name
+
+    def test_get_all_language_families(self):
+        """Test that get_all_language_families returns a list of unique family names"""
+        families = get_all_language_families()
+
+        assert isinstance(families, list)
+        assert len(families) > 0  # Should have some families
+
+        # Check that all items are strings
+        for family in families:
+            assert isinstance(family, str)
+
+        # Check that families are unique (no duplicates)
+        assert len(families) == len(set(families))
+
+        # Check that families are sorted
+        assert families == sorted(families)
+
+        # Verify that families exist in language metadata
+        all_languages = get_all_languages()
+        metadata_families = set()
+        for lang in all_languages:
+            family = lang.metadata.get("family")
+            if family:
+                metadata_families.add(family)
+
+        assert set(families) == metadata_families
