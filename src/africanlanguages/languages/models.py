@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -25,10 +25,10 @@ class Language:
 
     name: str
     codes: LanguageCodes
+    family: Optional[str] = None
     geographic: GeographicInfo = field(default_factory=GeographicInfo)
     alternative_names: List[str] = field(default_factory=list)
     dialects: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         """
@@ -64,4 +64,4 @@ class Language:
         Returns:
             bool: True if the language is spoken in the country.
         """
-        return country in self.geographic.countries
+        return country.lower() in [c.lower() for c in self.geographic.countries]

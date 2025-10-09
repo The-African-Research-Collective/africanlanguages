@@ -31,7 +31,7 @@ def get_all_language_families() -> List[str]:
     """
     families = set()
     for lang in languages.registry.get_all_languages():
-        family = lang.metadata.get("family")
+        family = lang.family
         if family:
             families.add(family)
     return sorted(families)

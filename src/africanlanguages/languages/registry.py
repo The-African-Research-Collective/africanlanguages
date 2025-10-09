@@ -75,11 +75,15 @@ class LanguageRegistry(metaclass=Singleton):
             if "latitude" in item and "longitude" in item:
                 coordinates = {"lat": item["latitude"], "lng": item["longitude"]}
 
-            geographic = GeographicInfo(regions=[item.get("macro_area", "Africa")], coordinates=coordinates)
+            geographic = GeographicInfo(
+                countries=[item["country"]] if "country" in item else [],
+                regions=[item.get("macro_area", "Africa")],
+                coordinates=coordinates,
+            )
 
-            metadata = {"family": item.get("family")}
+            family = item.get("family")
 
-            return Language(name=name, codes=codes, geographic=geographic, metadata=metadata)
+            return Language(name=name, codes=codes, geographic=geographic, family=family)
 
         except Exception:
             return None

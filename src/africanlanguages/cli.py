@@ -30,15 +30,32 @@ def list_languages(limit: int = 20, country: Optional[str] = None, region: Optio
         country: Filter by country name.
         region: Filter by region name.
     """
+    if country and country.isnumeric():
+        print("Error: Country name cannot be a number.")
+        return
+    if region and region.isnumeric():
+        print("Error: Region name cannot be a number.")
+        return
+
     if country:
         languages = africanlanguages.get_languages_by_country(country)
+        if not languages:
+            print(f"No languages found for country '{country}'.")
+            return
         print(f"Languages spoken in {country}:")
     elif region:
         languages = africanlanguages.get_languages_by_region(region)
+        if not languages:
+            print(f"No languages found for region '{region}'.")
+            return
         print(f"Languages spoken in {region}:")
     else:
         languages = get_all_languages()
         print("All languages:")
+
+    if not languages:
+        print("No languages found.")
+        return
 
     for lang in languages[:limit]:
         pprint(lang)
