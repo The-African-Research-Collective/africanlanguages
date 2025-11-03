@@ -4,10 +4,8 @@ africanlanguages - A comprehensive Python package for African language processin
 
 from typing import List, Optional
 
-# Dictionary module imports
-from .dictionary.loader import load_dictionary, load_yoruba_dict
-from .dictionary.models import DictionaryEntry, Translation
-from .dictionary.query import DictionaryQuery
+from africanlanguages.dictionary import Dictionary
+
 from .languages.discovery import LanguageDiscovery
 from .languages.models import Language
 
@@ -103,10 +101,4 @@ def get_language_count() -> int:
     return languages.query().count()
 
 
-__all__ = [
-    "DictionaryQuery",
-    "load_dictionary",
-    "load_yoruba_dict",
-    "DictionaryEntry",
-    "Translation",
-]
+__all__ = ["Dictionary"]

@@ -1,12 +1,16 @@
-# Convenience imports
-from .loader import load_dictionary, load_yoruba_dict
+"""Dictionary module for African language"""
+
+# Use relative imports to avoid circular import during package initialization
+from .dictionary import Dictionary
+from .loader import DictionaryFields, load_dictionary
 from .models import DictionaryEntry, Translation
 from .query import DictionaryQuery
 
 __all__ = [
-    "DictionaryQuery",
-    "load_dictionary",
-    "load_yoruba_dict",
+    "Dictionary",
     "DictionaryEntry",
+    "DictionaryQuery",
+    "DictionaryFields",
     "Translation",
+    "load_dictionary",
 ]

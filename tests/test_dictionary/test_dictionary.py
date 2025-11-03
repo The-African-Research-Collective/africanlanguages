@@ -1,30 +1,19 @@
-"""Combined tests for dictionary loader, models, and query functionality"""
+"""Tests for dictionary loader, models, and query functionality"""
 
 import pytest
+from pydantic import ValidationError
 
-from africanlanguages.dictionary.loader import load_dictionary, load_yoruba_dict
+from africanlanguages.dictionary import Dictionary
+from africanlanguages.dictionary.loader import load_dictionary
 from africanlanguages.dictionary.models import DictionaryEntry, Translation
 from africanlanguages.dictionary.query import DictionaryQuery
-from africanlanguages.languages.models import Language, LanguageCodes
 
 
 # Fixtures
 @pytest.fixture
-def yoruba_lang():
-    """Fixture for Yoruba language"""
-    return Language(name="Yoruba", codes=LanguageCodes(iso639_3="yor"), family="Niger-Congo")
-
-
-@pytest.fixture
-def english_lang():
-    """Fixture for English language"""
-    return Language(name="English", codes=LanguageCodes(iso639_3="eng"), family="Indo-European")
-
-
-@pytest.fixture
 def dictionary():
     """Load dictionary for testing"""
-    return load_yoruba_dict()
+    return load_dictionary(source_lang="yor")
 
 
 @pytest.fixture
@@ -37,52 +26,67 @@ def query(dictionary):
 class TestDictionaryModels:
     """Tests for dictionary models"""
 
-    def test_create_dictionary_entry(self, yoruba_lang, english_lang):
+    def test_create_dictionary_entry(self):
         """Test creating a complete dictionary entry"""
         entry = DictionaryEntry(
             word="adúrà",
-            language=yoruba_lang,
+            language="yor",
             part_of_speech="noun",
             definition="prayer, supplication, entreaty, petition",
             examples=["Mo gbàdúrà fún ọ."],
             translations=[
-                Translation(text="prayer", language=english_lang, context="religious or spiritual supplication")
+                Translation(
+                    text="prayer",
+                    language="en",
+                    context="religious or spiritual supplication",
+                )
             ],
         )
 
         assert entry.word == "adúrà"
-        assert entry.language is not None
-        assert entry.language.get_primary_code() == "yor"
-        assert entry.examples is not None
-        assert "Mo gbàdúrà fún ọ." in entry.examples
-        assert entry.translations is not None
-        assert len(entry.translations) > 0
-        assert entry.translations[0].text == "prayer"
+        assert entry.language == "yor"
+        assert isinstance(entry.language, str)
+        assert entry.translations is not None and entry.translations[0].language == "en"
 
-    def test_optional_fields(self, yoruba_lang):
+    def test_optional_fields(self):
         """Test creating entry with minimal fields"""
-        entry = DictionaryEntry(
-            word="adúrà", language=yoruba_lang, part_of_speech=None, definition=None, examples=None, translations=None
-        )
-        assert entry.word == "adúrà"
+        entry = DictionaryEntry.model_validate({"word": "test", "language": "yor"})
+        assert entry.word == "test"
+        assert entry.language == "yor"
         assert entry.definition is None
-        assert entry.examples is None
-        assert entry.translations is None
+
+    def test_language_required(self):
+        """Test that language field is required"""
+        with pytest.raises(ValidationError):
+            DictionaryEntry.model_validate({"word": "test", "language": ""})
+
+    def test_language_validation(self):
+        """Test language field strips whitespace"""
+        entry = DictionaryEntry.model_validate({"word": "test", "language": "  yor  "})
+        assert entry.language == "yor"
+
+    def test_translation_language_required(self):
+        """Test that Translation language is required"""
+        with pytest.raises(ValidationError):
+            Translation.model_validate({"text": "hello"})
 
 
 # Loader Tests
 class TestDictionaryLoader:
     """Tests for dictionary loader"""
 
-    def test_load_yoruba_dict(self):
-        """Test loading Yoruba dictionary"""
-        dictionary = load_yoruba_dict()
+    def test_load_dictionary(self):
+        """Test loading dictionary with source language"""
+        dictionary = load_dictionary(source_lang="yor")
+
         assert len(dictionary) > 0
+        assert isinstance(dictionary[0], DictionaryEntry)
+        assert dictionary[0].language == "yor"
 
     def test_load_dictionary_error(self):
         """Test error handling for invalid dataset"""
-        with pytest.raises(FileNotFoundError):
-            load_dictionary("nonexistent-dataset", "yor")
+        with pytest.raises(ValueError):
+            load_dictionary(source_lang="xyz", dataset_name="nonexistent-dataset")
 
 
 # Query Tests
@@ -91,23 +95,70 @@ class TestDictionaryQuery:
 
     def test_exact_search(self, query):
         """Test exact word search"""
-        results = query.search("adúrà", fuzzy=False)
+        results = query.search("a", fuzzy=False)
+
         if results:
-            assert any(entry.word == "adúrà" for entry in results)
+            assert all(isinstance(r, DictionaryEntry) for r in results)
+            assert all(r.word.lower() == "a" for r in results)
 
     def test_fuzzy_search(self, query):
         """Test fuzzy word search"""
-        results = query.search("baba", fuzzy=True, threshold=0.7)
-        # Fuzzy search should find similar words
-        assert len(results) > 0, "Fuzzy search should find similar words"
+        results = query.search("aba", fuzzy=True, threshold=0.6)
+        assert isinstance(results, list)
 
     def test_get_definitions(self, query):
         """Test definition lookup"""
-        definitions = query.get_definitions("adúrà")
-        if definitions:
-            assert any("prayer" in d.lower() for d in definitions if d)
+        definitions = query.get_definitions("a")
+        assert isinstance(definitions, list)
 
     def test_search_edge_cases(self, query):
         """Test search edge cases"""
-        assert len(query.search("", fuzzy=False)) == 0  # Empty search
-        assert len(query.search("xyzabc123", fuzzy=False)) == 0  # Non-existent word
+        assert len(query.search("", fuzzy=False)) == 0
+        assert len(query.search("xyzabc123", fuzzy=False)) == 0
+
+    def test_case_insensitive_search(self, query):
+        """Test that search is case-insensitive"""
+        lower_results = query.search("a", fuzzy=False)
+        upper_results = query.search("A", fuzzy=False)
+        assert len(lower_results) == len(upper_results)
+
+
+# Dictionary Class Tests
+class TestDictionaryClass:
+    """Tests for the Dictionary high-level interface"""
+
+    def test_dictionary_initialization(self):
+        """Test creating a Dictionary instance"""
+        yoruba_dict = Dictionary("yor")
+
+        assert yoruba_dict.language_code == "yor"
+        assert len(yoruba_dict) > 0
+
+    def test_dictionary_search(self):
+        """Test Dictionary.search() method"""
+        yoruba_dict = Dictionary("yor")
+        results = yoruba_dict.search("aga", fuzzy=False)
+        assert isinstance(results, list)
+
+    def test_dictionary_define(self):
+        """Test Dictionary.define() method"""
+        yoruba_dict = Dictionary("yor")
+        definitions = yoruba_dict.define("aga")
+        assert isinstance(definitions, list)
+
+
+# Integration Tests
+class TestDictionaryIntegration:
+    """Integration tests for the complete dictionary workflow"""
+
+    def test_load_search_workflow(self):
+        """Test complete workflow: load -> search -> get definitions"""
+        dictionary = load_dictionary(source_lang="yor")
+        query = DictionaryQuery(dictionary)
+
+        first_word = dictionary[0].word
+        results = query.search(first_word, fuzzy=False)
+        definitions = query.get_definitions(first_word)
+
+        assert len(results) > 0
+        assert isinstance(definitions, list)

@@ -1,19 +1,28 @@
 """Query interface for dictionary entries."""
 
+import unicodedata
 from difflib import SequenceMatcher
 from typing import List
 
-from .models import DictionaryEntry
+from africanlanguages.dictionary.models import DictionaryEntry
+
+
+def _norm(s: str) -> str:
+    """Normalize text for comparison (NFC + casefold + strip)."""
+    if s is None:
+        return ""
+    text = str(s)
+    try:
+        return unicodedata.normalize("NFC", text).casefold().strip()
+    except Exception:
+        return text.casefold().strip()
 
 
 class DictionaryQuery:
-    """
-    Provides search functionality over a list of DictionaryEntry objects.
-    """
+    """Provides search functionality over a list of DictionaryEntry objects."""
 
     def __init__(self, entries: List[DictionaryEntry]):
-        """
-        Initialize the query interface.
+        """Initialize the query interface.
 
         Args:
             entries: List of DictionaryEntry objects to query
@@ -25,7 +34,7 @@ class DictionaryQuery:
         """Build a simple index for exact word matches."""
         self._word_index = {}
         for entry in self.entries:
-            key = entry.word.lower()
+            key = _norm(entry.word)
             if key not in self._word_index:
                 self._word_index[key] = []
             self._word_index[key].append(entry)
@@ -42,14 +51,26 @@ class DictionaryQuery:
         Returns:
             List of matching DictionaryEntry objects
         """
-        word_lower = word.lower()
+        if not word or not word.strip():
+            # empty query returns no results
+            return []
+
+        word_norm = _norm(word)
 
         if not fuzzy:
-            return self._word_index.get(word_lower, [])
+            # return a shallow copy to avoid callers mutating internal state
+            return list(self._word_index.get(word_norm, []))
 
-        results = []
+        threshold = max(0.0, min(1.0, float(threshold)))
+
+        results: List[tuple[DictionaryEntry, float]] = []
         for entry in self.entries:
-            similarity = SequenceMatcher(None, word_lower, entry.word.lower()).ratio()
+            entry_word = (entry.word or "").lower()
+            # compute similarity; short-circuit identical words
+            if entry_word == word_norm:
+                results.append((entry, 1.0))
+                continue
+            similarity = SequenceMatcher(None, word_norm, entry_word).ratio()
             if similarity >= threshold:
                 results.append((entry, similarity))
 
@@ -69,4 +90,8 @@ class DictionaryQuery:
         entries = self.search(word, fuzzy=fuzzy)
         if not entries:
             return []
-        return [entry.definition for entry in entries if entry.definition]
+        defs: List[str] = []
+        for entry in entries:
+            if entry.definition:
+                defs.append(entry.definition)
+        return defs
