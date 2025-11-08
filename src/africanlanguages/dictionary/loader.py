@@ -12,6 +12,8 @@ from africanlanguages.dictionary.models import DictionaryEntry
 
 logger = logging.getLogger(__name__)
 
+HGF_DICTIONARY_DATASET = "taresco/py_lang_dictionary"
+
 
 class DictionaryFields(Enum):
     """Field names for dictionary dataset columns"""
@@ -25,7 +27,7 @@ class DictionaryFields(Enum):
 
 def load_dictionary(
     source_lang: str,
-    dataset_name: str = "taresco/py_lang_dictionary",
+    dataset_name: str = HGF_DICTIONARY_DATASET,
     config_name: Optional[str] = None,
     split: str = "train",
     cache_dir: Optional[str] = None,
