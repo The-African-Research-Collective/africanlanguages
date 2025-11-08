@@ -152,10 +152,9 @@ class TestConvenienceFunctions:
 
         # Verify that families exist in language metadata
         all_languages = get_all_languages()
-        metadata_families = set()
+        language_families = set()
         for lang in all_languages:
-            family = lang.metadata.get("family")
-            if family:
-                metadata_families.add(family)
+            if lang.family:
+                language_families.add(lang.family)
 
-        assert set(families) == metadata_families
+        assert set(families) == language_families
