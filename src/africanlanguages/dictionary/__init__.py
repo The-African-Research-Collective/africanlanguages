@@ -1,6 +1,5 @@
-"""Dictionary module for African language"""
+"""Dictionary module for African languages"""
 
-# Use relative imports to avoid circular import during package initialization
 from .dictionary import Dictionary
 from .loader import DictionaryFields, load_dictionary
 from .models import DictionaryEntry, Translation

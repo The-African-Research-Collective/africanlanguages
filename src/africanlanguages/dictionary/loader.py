@@ -16,7 +16,9 @@ HGF_DICTIONARY_DATASET = "taresco/py_lang_dictionary"
 
 
 class DictionaryFields(Enum):
-    """Field names for dictionary dataset columns"""
+    """
+    Mapping of dataset column names to internal fields.
+    """
 
     WORD = "word"
     POS = "pos"
@@ -30,55 +32,46 @@ def load_dictionary(
     dataset_name: str = HGF_DICTIONARY_DATASET,
     config_name: Optional[str] = None,
     split: str = "train",
-    cache_dir: Optional[str] = None,
     **dataset_kwargs: Any,
 ) -> List[DictionaryEntry]:
-    """Load any language dictionary dataset from Hugging Face.
-
-    Args:
-        source_lang: ISO code or name of the source language
-        dataset_name: HF dataset id or path (default: "taresco/py_lang_dictionary").
-        config_name: Optional configuration name for multi-config datasets.
-        split: Dataset split to load (default: "train").
-        cache_dir: Optional cache directory for datasets.
-        **dataset_kwargs: Additional kwargs passed to `datasets.load_dataset`.
-
-    Returns:
-        A list of validated :class:`DictionaryEntry` instances.
+    """
+    Load dictionary dataset from Hugging Face.
     """
 
-    data_file = f"{source_lang}_dictionary.csv"
-    logger.info(f"Loading dataset '{dataset_name}' with data file '{data_file}' (split={split})...")
+    config_name = config_name or source_lang
+    logger.info(f"Loading dictionary for '{source_lang}'...")
 
     try:
         dataset = load_dataset(
             dataset_name,
-            data_files=data_file,
             name=config_name,
             split=split,
-            cache_dir=cache_dir,
             **dataset_kwargs,
         )
     except Exception as e:
-        logger.error(f"Failed to load dataset '{dataset_name}': {e}")
+        logger.error(f"Failed to load dictionary for '{source_lang}': {e}")
         raise
 
     entries: List[DictionaryEntry] = []
 
     for idx, row in enumerate(dataset):
         try:
+            word = row.get(DictionaryFields.WORD.value)
+            if not word:
+                continue
+
             entry = DictionaryEntry(
-                word=row.get(DictionaryFields.WORD.value, "").strip(),
+                word=word,
                 language=source_lang,
-                part_of_speech=row.get(DictionaryFields.POS.value) or None,
-                definition=row.get(DictionaryFields.DEFINITION.value, "").strip(),
-                examples=row.get(DictionaryFields.EXAMPLES.value),
-                translations=row.get(DictionaryFields.TRANSLATIONS.value, []),
+                part_of_speech=row.get(DictionaryFields.POS.value),
+                definition=row.get(DictionaryFields.DEFINITION.value) or "",
+                examples=row.get(DictionaryFields.EXAMPLES.value) or [],
+                translations=row.get(DictionaryFields.TRANSLATIONS.value) or [],
             )
             entries.append(entry)
         except Exception as e:
-            logger.warning("Skipping row %d due to error: %s", idx, e)
+            logger.warning(f"Skipping row {idx}: {e}")
             continue
 
-    logger.info(f"Loaded {len(entries)} entries from dataset '{dataset_name}'.")
+    logger.info(f"Loaded {len(entries)} entries for '{source_lang}'.")
     return entries
