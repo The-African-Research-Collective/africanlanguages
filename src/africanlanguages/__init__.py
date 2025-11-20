@@ -6,6 +6,8 @@ from typing import List, Optional
 
 from .dictionary import Dictionary
 from .dictionary.models import DictionaryEntry
+from africanlanguages.dictionary import Dictionary
+
 from .languages.discovery import LanguageDiscovery
 from .languages.models import Language
 
