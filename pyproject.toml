@@ -9,6 +9,7 @@ dependencies = [
     "pycountry>=24.6.1",
     "pydantic>=2.0",
     "datasets>=2.14.0",
+    "regex>=2025.11.3",
 ]
 
 [tool.uv]

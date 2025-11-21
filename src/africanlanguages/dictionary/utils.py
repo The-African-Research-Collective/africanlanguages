@@ -17,6 +17,14 @@ def normalize_text(text: str) -> str:
     return text.casefold().strip()
 
 
+def remove_diacritics(text: str) -> str:
+    if not text:
+        return ""
+    decomposed = unicodedata.normalize("NFD", str(text))
+    stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return stripped.casefold().strip()
+
+
 def strip_punctuation_edges(text: str) -> str:
     """
     Removes punctuation ONLY from the start and end of a token.

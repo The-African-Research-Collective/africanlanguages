@@ -1,5 +1,6 @@
 """Query interface for dictionary entries."""
 
+from collections import defaultdict
 from difflib import SequenceMatcher
 from typing import Dict, List
 
@@ -12,7 +13,7 @@ class DictionaryQuery:
 
     def __init__(self, entries: List[DictionaryEntry]):
         self.entries = entries
-        self._index: Dict[str, List[DictionaryEntry]] = {}
+        self._index: Dict[str, List[DictionaryEntry]] = defaultdict(list)
         self._build_index()
 
     def _build_index(self):
@@ -21,11 +22,11 @@ class DictionaryQuery:
         """
         for entry in self.entries:
             head = normalize_text(entry.word)
-            self._index.setdefault(head, []).append(entry)
+            self._index[head].append(entry)
 
             if entry.definition and len(entry.definition.split()) < 5:
                 def_key = normalize_text(entry.definition)
-                current_list = self._index.setdefault(def_key, [])
+                current_list = self._index[def_key]
                 if entry not in current_list:
                     current_list.append(entry)
 
@@ -33,7 +34,7 @@ class DictionaryQuery:
                 t_str = t.text if isinstance(t, Translation) else str(t)
                 t_key = normalize_text(t_str)
 
-                current_list = self._index.setdefault(t_key, [])
+                current_list = self._index[t_key]
                 if entry not in current_list:
                     current_list.append(entry)
 
