@@ -1,97 +1,106 @@
 """Query interface for dictionary entries."""
 
-import unicodedata
+from collections import defaultdict
 from difflib import SequenceMatcher
-from typing import List
+from typing import Dict, List
 
-from africanlanguages.dictionary.models import DictionaryEntry
-
-
-def _norm(s: str) -> str:
-    """Normalize text for comparison (NFC + casefold + strip)."""
-    if s is None:
-        return ""
-    text = str(s)
-    try:
-        return unicodedata.normalize("NFC", text).casefold().strip()
-    except Exception:
-        return text.casefold().strip()
+from africanlanguages.dictionary.models import DictionaryEntry, Translation
+from africanlanguages.dictionary.utils import normalize_text
 
 
 class DictionaryQuery:
     """Provides search functionality over a list of DictionaryEntry objects."""
 
     def __init__(self, entries: List[DictionaryEntry]):
-        """Initialize the query interface.
-
-        Args:
-            entries: List of DictionaryEntry objects to query
-        """
         self.entries = entries
+        self._index: Dict[str, List[DictionaryEntry]] = defaultdict(list)
         self._build_index()
 
-    def _build_index(self) -> None:
-        """Build a simple index for exact word matches."""
-        self._word_index = {}
+    def _build_index(self):
+        """
+        Builds the index for fast exact lookups (Headwords and definitions).
+        """
         for entry in self.entries:
-            key = _norm(entry.word)
-            if key not in self._word_index:
-                self._word_index[key] = []
-            self._word_index[key].append(entry)
+            head = normalize_text(entry.word)
+            self._index[head].append(entry)
 
-    def search(self, word: str, fuzzy: bool = False, threshold: float = 0.6) -> List[DictionaryEntry]:
+            if entry.definition and len(entry.definition.split()) < 5:
+                def_key = normalize_text(entry.definition)
+                current_list = self._index[def_key]
+                if entry not in current_list:
+                    current_list.append(entry)
+
+            for t in entry.translations:
+                t_str = t.text if isinstance(t, Translation) else str(t)
+                t_key = normalize_text(t_str)
+
+                current_list = self._index[t_key]
+                if entry not in current_list:
+                    current_list.append(entry)
+
+    def find_matches(
+        self, token: str, exact_match: bool = True, top_n: int = 2, threshold: float = 0.6
+    ) -> List[DictionaryEntry]:
         """
-        Search for entries matching a word.
+        Core search logic. Attempts exact match first, then falls back
+        to fuzzy search if enabled.
 
-        Args:
-            word: Word to search for
-            fuzzy: Use fuzzy matching
-            threshold: Minimum similarity for fuzzy matching (0-1)
-
-        Returns:
-            List of matching DictionaryEntry objects
+        The fuzzy search checks the headword and definition
+        fields to support both forward and reverse lookups.
         """
-        if not word or not word.strip():
-            # empty query returns no results
+
+        token_norm = normalize_text(token)
+        if not token_norm:
             return []
 
-        word_norm = _norm(word)
+        if token_norm in self._index:
+            match_list = self._index[token_norm]
 
-        if not fuzzy:
-            # return a shallow copy to avoid callers mutating internal state
-            return list(self._word_index.get(word_norm, []))
+            # Prioritizes entry whose original word exactly matches the search token.
+            primary_match = next((e for e in match_list if e.word == token), None)
 
-        threshold = max(0.0, min(1.0, float(threshold)))
+            if primary_match:
+                sorted_list = [primary_match] + [e for e in match_list if e != primary_match]
+                return sorted_list
 
-        results: List[tuple[DictionaryEntry, float]] = []
-        for entry in self.entries:
-            entry_word = (entry.word or "").lower()
-            # compute similarity; short-circuit identical words
-            if entry_word == word_norm:
-                results.append((entry, 1.0))
-                continue
-            similarity = SequenceMatcher(None, word_norm, entry_word).ratio()
-            if similarity >= threshold:
-                results.append((entry, similarity))
+            return match_list
 
-        results.sort(key=lambda x: x[1], reverse=True)
-        return [entry for entry, _ in results]
-
-    def get_definitions(self, word: str, fuzzy: bool = False) -> List[str]:
-        """
-        Get definitions for a word.
-        Args:
-            word: Word to look up
-            fuzzy: Use fuzzy matching
-
-        Returns:
-            List of definition strings, in the same order as the dataset
-        """
-        entries = self.search(word, fuzzy=fuzzy)
-        if not entries:
+        if exact_match:
             return []
-        defs: List[str] = []
-        for entry in entries:
+
+        # Fuzzy Search (Fallback)
+        scored = []
+        for entry in self.entries:
+            max_score = 0.0
+
+            head_norm = normalize_text(entry.word)
+            if abs(len(head_norm) - len(token_norm)) <= 4:
+                score = SequenceMatcher(None, token_norm, head_norm).ratio()
+                max_score = max(max_score, score)
+
+            for t in entry.translations:
+                t_str = t.text if isinstance(t, Translation) else str(t)
+                t_norm = normalize_text(t_str)
+
+                if token_norm in t_norm:
+                    max_score = max(max_score, 1.0)
+                else:
+                    if abs(len(t_norm) - len(token_norm)) < 15:
+                        score = SequenceMatcher(None, token_norm, t_norm).ratio()
+                        max_score = max(max_score, score)
+
             if entry.definition:
-                defs.append(entry.definition)
-        return defs
+                def_norm = normalize_text(entry.definition)
+
+                if token_norm in def_norm:
+                    max_score = max(max_score, 1.0)
+                else:
+                    if abs(len(def_norm) - len(token_norm)) < 15:
+                        score = SequenceMatcher(None, token_norm, def_norm).ratio()
+                        max_score = max(max_score, score)
+
+            if max_score >= threshold:
+                scored.append((entry, max_score))
+
+        scored.sort(key=lambda x: (x[1], -len(x[0].word)), reverse=True)
+        return [entry for entry, _ in scored[:top_n]]

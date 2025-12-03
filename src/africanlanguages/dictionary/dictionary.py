@@ -2,69 +2,95 @@
 Main Dictionary class providing a high-level interface.
 """
 
-from typing import List
+from typing import Any, Dict, List
 
 from africanlanguages.dictionary.loader import load_dictionary
 from africanlanguages.dictionary.models import DictionaryEntry
 from africanlanguages.dictionary.query import DictionaryQuery
+from africanlanguages.dictionary.utils import strip_punctuation_edges
 
 
 class Dictionary:
-    """
-    This class provides a convenient way to load and query dictionaries
-    without needing to import multiple modules.
-
-    Args:
-        language_code: ISO 639-3 language code
-        **kwargs: Additional arguments passed to load_dictionary
-
-    """
-
     def __init__(self, language_code: str, **kwargs):
-        """
-        Initialize a dictionary for the specified language.
-
-        Args:
-            language_code: ISO 639-3 language code
-            **kwargs: Additional arguments for load_dictionary
-        """
         self.language_code = language_code
         self.entries = load_dictionary(source_lang=language_code, **kwargs)
-
-        # Initialize query interface for searching
         self._query = DictionaryQuery(self.entries)
 
-    def search(self, word: str, fuzzy: bool = False, threshold: float = 0.6) -> List[DictionaryEntry]:
+    def lookup(
+        self, word: str, exact_match: bool = True, top_n: int = 2, threshold: float = 0.6
+    ) -> List[DictionaryEntry]:
         """
-        Search for a word in the dictionary.
+        Search for a single word in the dictionary.
 
         Args:
-            word: Word to search for
-            fuzzy: Use fuzzy matching (default: False)
-            threshold: Minimum similarity for fuzzy matching (0-1)
+            word (str): The word or token to search for.
+            exact_match (bool): If True, only returns exact matches found
+                                via the index. If False, performs a fuzzy search
+                                using SequenceMatcher. Defaults to True.
+            top_n (int): The maximum number of results to return during a
+                        fuzzy search. Defaults to 2.
+            threshold (float): The minimum similarity score (0.0 to 1.0)
+                            required for a result in a fuzzy search.
+                            Defaults to 0.6.
 
         Returns:
-            List of matching DictionaryEntry objects
+            List[DictionaryEntry]: A list of matching dictionary entries, sorted by relevance (score).
         """
-        return self._query.search(word, fuzzy=fuzzy, threshold=threshold)
 
-    def define(self, word: str, fuzzy: bool = False) -> List[str]:
+        clean_word = strip_punctuation_edges(word)
+        return self._query.find_matches(clean_word, exact_match=exact_match, top_n=top_n, threshold=threshold)
+
+    def lookup_sentence(
+        self, sentence: str, exact_match: bool = True, top_n: int = 2, threshold: float = 0.6, simple: bool = True
+    ) -> Dict[str, Any]:
         """
-        Get definitions for a word.
+        Search for every word (token) in a sentence.
 
         Args:
-            word: Word to look up
-            fuzzy: Use fuzzy matching (default: False)
+            sentence (str): The input text to tokenize and search.
+            exact_match (bool): If True, performs exact lookups for each token.
+                                If False, performs fuzzy lookups (useful for
+                                reverse lookup/translation). Defaults to True.
+            top_n (int): The maximum number of results per token during a
+                        fuzzy search. Defaults to 2.
+            threshold (float): The minimum similarity score (0.0 to 1.0)  required for a fuzzy match.
+                                Defaults to 0.6.
+            simple (bool): If True, the results dictionary contains a simplified
+                        list of strings (definitions for forward lookup,
+                        headwords for reverse lookup). If False, returns
+                        full DictionaryEntry objects. Defaults to True.
 
         Returns:
-            List of definition strings
+            Dict[str, Any]: A dictionary where keys are the original tokens
+                            from the sentence, and values are the matching
+                            results (either List[str] or List[DictionaryEntry]).
         """
-        return self._query.get_definitions(word, fuzzy=fuzzy)
+
+        raw_tokens = sentence.split()
+        results = {}
+
+        for token in raw_tokens:
+            query_term = strip_punctuation_edges(token)
+
+            if not query_term:
+                continue
+
+            entries = self._query.find_matches(query_term, exact_match=exact_match, top_n=top_n, threshold=threshold)
+
+            if simple:
+                if exact_match:
+                    simplified_results = [e.definition for e in entries if e.definition]
+                else:
+                    simplified_results = [e.word for e in entries]
+
+                results[token] = simplified_results
+            else:
+                results[token] = entries
+
+        return results
 
     def __len__(self) -> int:
-        """Return the number of entries in the dictionary."""
         return len(self.entries)
 
     def __repr__(self) -> str:
-        """Developer-friendly representation."""
         return f"Dictionary(language={self.language_code!r}, entries={len(self)})"
