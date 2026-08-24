@@ -47,6 +47,28 @@ source forms, and the complete canonical object in `entry.metadata`.
 These are source-audited historical dictionaries, not automatic authorities
 for contemporary spelling, dialect, register, or translation quality.
 
+### Parallel usage examples
+
+When a provider supplies an attested example sentence, the original text and
+its aligned translation are available as structured evidence:
+
+```python
+examples = forward.examples("ilé", limit=3)
+for example in examples:
+    print(example.text)
+    if example.translation:
+        print(example.translation.text)
+    print(example.evidence_status, example.provenance)
+```
+
+`DictionaryEntry.examples` remains a list of source strings for backward
+compatibility. `DictionaryEntry.usage_examples` adds stable example and sense
+identifiers, language codes, aligned translations, provenance, evidence
+status, and review flags. Examples without an attested translation remain
+untranslated; the framework does not manufacture an alignment. Wiktextract
+example translations are preserved with an explicit native-speaker and
+alignment-review requirement.
+
 ### Use another bilingual source
 
 External mappings do not need to be added to Afri-Dict. A CSV or TSV with one

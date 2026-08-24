@@ -9,7 +9,7 @@ from africanlanguages.dictionary.loader import (
     available_dictionaries,
     resolve_dictionary_config,
 )
-from africanlanguages.dictionary.models import DictionaryAvailability, DictionaryEntry, DictionaryMetadata
+from africanlanguages.dictionary.models import DictionaryAvailability, DictionaryEntry, DictionaryMetadata, UsageExample
 from africanlanguages.dictionary.providers import AfriDictProvider, DictionaryProvider
 from africanlanguages.dictionary.query import DictionaryQuery
 
@@ -98,6 +98,24 @@ class Dictionary:
     def lookup_many(self, words: list[str]) -> dict[str, list[DictionaryEntry]]:
         """Look up multiple words in one in-memory pass."""
         return self._query.lookup_many(words)
+
+    def examples(
+        self,
+        word: str,
+        *,
+        sense_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[UsageExample]:
+        """Return source-backed usage examples for a headword or one sense."""
+        if limit is not None and limit <= 0:
+            return []
+        results = [
+            example
+            for entry in self.lookup(word)
+            for example in entry.usage_examples
+            if sense_id is None or example.sense_id == sense_id
+        ]
+        return results[:limit] if limit is not None else results
 
     def define(self, word: str, fuzzy: bool = False) -> list[str]:
         """Return source-backed definitions for a word."""

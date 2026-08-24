@@ -3,7 +3,7 @@
 # Use relative imports to avoid circular import during package initialization
 from .dictionary import Dictionary
 from .loader import AFRI_DICT_REVISION, DictionaryFields, available_dictionaries, load_dictionary
-from .models import DictionaryAvailability, DictionaryEntry, DictionaryMetadata, Translation
+from .models import DictionaryAvailability, DictionaryEntry, DictionaryMetadata, Translation, UsageExample
 from .providers import (
     AfriDictProvider,
     DelimitedFileProvider,
@@ -27,6 +27,7 @@ __all__ = [
     "FreeDictProvider",
     "WiktextractProvider",
     "Translation",
+    "UsageExample",
     "available_dictionaries",
     "load_dictionary",
     "normalize_text",

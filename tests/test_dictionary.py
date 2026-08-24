@@ -15,6 +15,7 @@ from africanlanguages.dictionary import (
     DictionaryQuery,
     FreeDictProvider,
     Translation,
+    UsageExample,
     WiktextractProvider,
     normalize_text,
 )
@@ -31,6 +32,17 @@ def sample_entries():
             target_language="eng",
             part_of_speech="verb",
             definition="to strip naked",
+            examples=["Ó bọ laṣọ."],
+            usage_examples=[
+                UsageExample(
+                    example_id="yor:1:example:1",
+                    sense_id="yor:1:sense:1",
+                    text="Ó bọ laṣọ.",
+                    language="yor",
+                    translation=Translation(text="They stripped naked.", language="eng"),
+                    evidence_status="native_reviewed",
+                )
+            ],
             audit_status="native_reviewed",
             metadata={"provenance": {"page": 42}, "audit": {"reviewed": True}},
         ),
@@ -63,12 +75,23 @@ def test_models_preserve_evidence():
     assert entry.translations[0].source_form == "bọ-laṣọ"
     assert entry.provenance == {"printed_page": 42}
 
+    example = UsageExample(
+        text="Ọmọ náà ń ṣeré níta.",
+        language="yor",
+        translation=Translation(text="The child is playing outside.", language="eng"),
+        provenance={"record_id": "example-001"},
+    )
+    assert example.translation.text == "The child is playing outside."
+    assert example.provenance == {"record_id": "example-001"}
+
 
 def test_model_required_fields():
     with pytest.raises(ValidationError):
         DictionaryEntry(word="test", language="")
     with pytest.raises(ValidationError):
         Translation(text="", language="yor")
+    with pytest.raises(ValidationError):
+        UsageExample(text="", language="yor")
 
 
 def test_normalization_aware_exact_lookup(sample_entries):
@@ -94,6 +117,9 @@ def test_dictionary_high_level_interface(sample_entries):
     assert dictionary.prefix("bọ", limit=1)[0].word == "bọ bata"
     assert dictionary.lookup_many(["àbà"])["àbà"][0].word == "àbà"
     assert dictionary.define("bọ bata") == ["to take off shoes"]
+    assert dictionary.examples("bọ laṣọ")[0].translation.text == "They stripped naked."
+    assert dictionary.examples("bọ laṣọ", sense_id="missing") == []
+    assert dictionary.examples("bọ laṣọ", limit=0) == []
     metadata = dictionary.metadata()
     assert metadata.config_name == "en_yor_v1"
     assert metadata.entry_count == 3
@@ -202,6 +228,53 @@ def test_loader_safely_inverts_explicit_candidates_for_language_lookup(monkeypat
     assert entries[0].definition == "house"
     assert entries[0].translations[0].text == "house"
     assert entries[0].metadata["inverted_from"]["entry_id"] == "swa:reverse:house"
+
+
+def test_loader_parses_structured_examples_without_inventing_translations(monkeypatch):
+    canonical = {
+        "entry_id": "yor:omo",
+        "language": "yor",
+        "provenance": {"printed_page": 10},
+        "senses": [
+            {
+                "sense_id": "yor:omo:child",
+                "examples": [
+                    {
+                        "example_id": "yor:omo:example:1",
+                        "text": "Ọmọ náà ń ṣeré níta.",
+                        "language": "yor",
+                        "translation": {
+                            "text": "The child is playing outside.",
+                            "language": "eng",
+                        },
+                        "evidence_status": "source_attested",
+                    },
+                    {"text": "Ọmọ náà dé."},
+                ],
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        dictionary_loader,
+        "load_dataset",
+        lambda *args, **kwargs: [
+            {
+                "entry_id": "yor:omo",
+                "word": "ọmọ",
+                "language": "yor",
+                "target_language": "eng",
+                "definition": "child",
+                "entry_json": json.dumps(canonical, ensure_ascii=False),
+            }
+        ],
+    )
+
+    entry = dictionary_loader.load_dictionary("yor")[0]
+    assert entry.examples == ["Ọmọ náà ń ṣeré níta.", "Ọmọ náà dé."]
+    assert entry.usage_examples[0].sense_id == "yor:omo:child"
+    assert entry.usage_examples[0].translation.text == "The child is playing outside."
+    assert entry.usage_examples[0].provenance == {"printed_page": 10}
+    assert entry.usage_examples[1].translation is None
 
 
 def test_loader_refuses_to_reverse_definition_prose(monkeypatch):
@@ -421,6 +494,10 @@ def test_wiktextract_provider_uses_glosses_and_explicit_translations(tmp_path):
     results = language_dictionary.lookup("ilé")
     assert [entry.definition for entry in results] == ["house", "home"]
     assert results[0].examples == ["Ilé mi ni èyí."]
+    assert language_dictionary.examples("ilé")[0].text == "Ilé mi ni èyí."
+    assert language_dictionary.examples("ilé")[0].translation.text == "This is my house."
+    assert language_dictionary.examples("ilé")[0].evidence_status == "source_attested_unreviewed"
+    assert language_dictionary.examples("ilé")[0].provenance["example_number"] == 1
     assert results[0].translations == []
     assert results[0].metadata["raw"] == language_record
     assert results[0].provenance["dump_revision"] == "2026-08-01"

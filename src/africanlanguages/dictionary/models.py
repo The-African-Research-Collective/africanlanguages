@@ -29,6 +29,28 @@ class Translation(BaseModel):
         return value
 
 
+class UsageExample(BaseModel):
+    """A source sentence and, when attested, its aligned translation."""
+
+    example_id: Optional[str] = Field(None, description="Stable example identifier.")
+    sense_id: Optional[str] = Field(None, description="Sense illustrated by this example.")
+    text: str = Field(..., description="Source-language example sentence.")
+    language: str = Field(..., description="ISO 639-3 language code of the source sentence.")
+    translation: Optional[Translation] = Field(None, description="Aligned translated sentence.")
+    evidence_status: Optional[str] = Field(None, description="How the example and alignment were obtained.")
+    review_flags: list[str] = Field(default_factory=list)
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("text", "language")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("value cannot be empty")
+        return value
+
+
 class DictionaryEntry(BaseModel):
     """A dictionary headword with its source-backed meanings and evidence."""
 
@@ -39,6 +61,10 @@ class DictionaryEntry(BaseModel):
     part_of_speech: Optional[str] = Field(None, description="Part of speech.")
     definition: Optional[str] = Field(None, description="Source-backed definition or compact gloss.")
     examples: list[str] = Field(default_factory=list)
+    usage_examples: list[UsageExample] = Field(
+        default_factory=list,
+        description="Structured source examples and their aligned translations.",
+    )
     translations: list[Translation] = Field(default_factory=list)
     audit_status: Optional[str] = Field(None, description="Source audit disposition.")
     source: Optional[str] = Field(None, description="Provider that supplied this result.")

@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from africanlanguages.core.exceptions import ConfigurationError, DataLoadError
 from africanlanguages.dictionary.loader import AFRI_DICT_REVISION, HGF_DICTIONARY_DATASET, load_dictionary
-from africanlanguages.dictionary.models import DictionaryEntry, Translation
+from africanlanguages.dictionary.models import DictionaryEntry, Translation, UsageExample
 
 _WIKTIONARY_LANGUAGE_CODES = {
     "hau": {"ha", "hau"},
@@ -376,12 +376,34 @@ class WiktextractProvider(DictionaryProvider):
             if not glosses:
                 continue
             definition = glosses[-1]
-            examples = [
-                str(example.get("text") or "").strip()
-                for example in sense.get("examples") or []
-                if str(example.get("text") or "").strip()
-            ]
+            entry_id = self._entry_id(record, line_number, sense_number)
             provenance = self._provenance(path, line_number, word)
+            usage_examples: list[UsageExample] = []
+            for example_number, raw_example in enumerate(sense.get("examples") or [], start=1):
+                if not isinstance(raw_example, dict):
+                    continue
+                text = str(raw_example.get("text") or "").strip()
+                if not text:
+                    continue
+                translated = raw_example.get("translation")
+                translation = None
+                if isinstance(translated, str) and translated.strip():
+                    translation = Translation(text=translated, language="eng", metadata=raw_example)
+                example_provenance = dict(provenance)
+                example_provenance.update({"sense_number": sense_number, "example_number": example_number})
+                usage_examples.append(
+                    UsageExample(
+                        example_id=f"{entry_id}:example:{example_number}",
+                        sense_id=entry_id,
+                        text=text,
+                        language=self.language,
+                        translation=translation,
+                        evidence_status="source_attested_unreviewed",
+                        review_flags=["native_speaker_review_required", "alignment_review_required"],
+                        provenance=example_provenance,
+                        metadata=raw_example,
+                    )
+                )
             metadata = {
                 "provider": self.name,
                 "provenance": provenance,
@@ -391,13 +413,14 @@ class WiktextractProvider(DictionaryProvider):
                 metadata["raw"] = record
             entries.append(
                 DictionaryEntry(
-                    entry_id=self._entry_id(record, line_number, sense_number),
+                    entry_id=entry_id,
                     word=word,
                     language=self.language,
                     target_language="eng",
                     part_of_speech=str(record.get("pos") or "").strip() or None,
                     definition=definition,
-                    examples=examples,
+                    examples=[example.text for example in usage_examples],
+                    usage_examples=usage_examples,
                     source=self.name,
                     audit_status="external_community_source_unreviewed",
                     metadata=metadata,
