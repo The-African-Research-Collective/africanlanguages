@@ -1,97 +1,91 @@
-"""Query interface for dictionary entries."""
+"""In-memory lookup over audited dictionary entries."""
 
+import re
 import unicodedata
 from difflib import SequenceMatcher
-from typing import List
 
 from africanlanguages.dictionary.models import DictionaryEntry
 
+_HYPHENS = re.compile(
+    r"[\-\u058a\u05be\u1400\u1806\u2010-\u2015\u2e17\u2e1a\u2e3a-\u2e3b\u2e40\u301c\u3030\u30a0\ufe31-\ufe32\ufe58\ufe63\uff0d]+"
+)
 
-def _norm(s: str) -> str:
-    """Normalize text for comparison (NFC + casefold + strip)."""
-    if s is None:
-        return ""
-    text = str(s)
-    try:
-        return unicodedata.normalize("NFC", text).casefold().strip()
-    except Exception:
-        return text.casefold().strip()
+
+def normalize_text(text: str, *, separator_insensitive: bool = False) -> str:
+    """Normalize Unicode, case, whitespace, and optionally hyphen-like separators."""
+    value = unicodedata.normalize("NFC", str(text or "")).casefold().strip()
+    if separator_insensitive:
+        value = _HYPHENS.sub(" ", value)
+    return " ".join(value.split())
+
+
+def _fuzzy_text(text: str, *, separator_insensitive: bool) -> str:
+    normalized = normalize_text(text, separator_insensitive=separator_insensitive)
+    return "".join(
+        character for character in unicodedata.normalize("NFD", normalized) if not unicodedata.combining(character)
+    )
 
 
 class DictionaryQuery:
-    """Provides search functionality over a list of DictionaryEntry objects."""
+    """Exact, prefix, and fuzzy lookup over a list of entries."""
 
-    def __init__(self, entries: List[DictionaryEntry]):
-        """Initialize the query interface.
-
-        Args:
-            entries: List of DictionaryEntry objects to query
-        """
+    def __init__(self, entries: list[DictionaryEntry]):
         self.entries = entries
-        self._build_index()
+        self._word_index: dict[str, list[DictionaryEntry]] = {}
+        self._loose_index: dict[str, list[DictionaryEntry]] = {}
+        for entry in entries:
+            self._word_index.setdefault(normalize_text(entry.word), []).append(entry)
+            self._loose_index.setdefault(normalize_text(entry.word, separator_insensitive=True), []).append(entry)
 
-    def _build_index(self) -> None:
-        """Build a simple index for exact word matches."""
-        self._word_index = {}
-        for entry in self.entries:
-            key = _norm(entry.word)
-            if key not in self._word_index:
-                self._word_index[key] = []
-            self._word_index[key].append(entry)
-
-    def search(self, word: str, fuzzy: bool = False, threshold: float = 0.6) -> List[DictionaryEntry]:
-        """
-        Search for entries matching a word.
-
-        Args:
-            word: Word to search for
-            fuzzy: Use fuzzy matching
-            threshold: Minimum similarity for fuzzy matching (0-1)
-
-        Returns:
-            List of matching DictionaryEntry objects
-        """
-        if not word or not word.strip():
-            # empty query returns no results
+    def search(
+        self,
+        word: str,
+        fuzzy: bool = False,
+        threshold: float = 0.6,
+        *,
+        normalization_aware: bool = True,
+        prefix: bool = False,
+        limit: int | None = None,
+    ) -> list[DictionaryEntry]:
+        """Search for exact, prefix, or fuzzy headword matches."""
+        if not word or not word.strip() or (limit is not None and limit <= 0):
             return []
+        strict_key = normalize_text(word)
+        loose_key = normalize_text(word, separator_insensitive=True)
 
-        word_norm = _norm(word)
+        if prefix:
+            index = self._loose_index if normalization_aware else self._word_index
+            key = loose_key if normalization_aware else strict_key
+            results = [entry for candidate, values in index.items() if candidate.startswith(key) for entry in values]
+            results.sort(key=lambda entry: (normalize_text(entry.word), entry.entry_id or ""))
+            return results[:limit] if limit is not None else results
 
         if not fuzzy:
-            # return a shallow copy to avoid callers mutating internal state
-            return list(self._word_index.get(word_norm, []))
+            results = list(self._word_index.get(strict_key, []))
+            if not results and normalization_aware:
+                results = list(self._loose_index.get(loose_key, []))
+            return results[:limit] if limit is not None else results
 
         threshold = max(0.0, min(1.0, float(threshold)))
-
-        results: List[tuple[DictionaryEntry, float]] = []
+        query_key = _fuzzy_text(word, separator_insensitive=normalization_aware)
+        scored: list[tuple[DictionaryEntry, float]] = []
         for entry in self.entries:
-            entry_word = (entry.word or "").lower()
-            # compute similarity; short-circuit identical words
-            if entry_word == word_norm:
-                results.append((entry, 1.0))
-                continue
-            similarity = SequenceMatcher(None, word_norm, entry_word).ratio()
+            candidate = _fuzzy_text(entry.word, separator_insensitive=normalization_aware)
+            similarity = SequenceMatcher(None, query_key, candidate).ratio()
             if similarity >= threshold:
-                results.append((entry, similarity))
+                scored.append((entry, similarity))
+        scored.sort(key=lambda item: (-item[1], normalize_text(item[0].word), item[0].entry_id or ""))
+        results = [entry for entry, _ in scored]
+        return results[:limit] if limit is not None else results
 
-        results.sort(key=lambda x: x[1], reverse=True)
-        return [entry for entry, _ in results]
+    def prefix(self, value: str, limit: int = 20) -> list[DictionaryEntry]:
+        """Return normalization-aware prefix matches."""
+        return self.search(value, prefix=True, limit=limit)
 
-    def get_definitions(self, word: str, fuzzy: bool = False) -> List[str]:
-        """
-        Get definitions for a word.
-        Args:
-            word: Word to look up
-            fuzzy: Use fuzzy matching
+    def lookup_many(self, words: list[str]) -> dict[str, list[DictionaryEntry]]:
+        """Look up multiple headwords while preserving the caller's keys."""
+        return {word: self.search(word) for word in words}
 
-        Returns:
-            List of definition strings, in the same order as the dataset
-        """
-        entries = self.search(word, fuzzy=fuzzy)
-        if not entries:
-            return []
-        defs: List[str] = []
-        for entry in entries:
-            if entry.definition:
-                defs.append(entry.definition)
-        return defs
+    def get_definitions(self, word: str, fuzzy: bool = False) -> list[str]:
+        """Return non-empty definitions for matching entries."""
+        return [entry.definition for entry in self.search(word, fuzzy=fuzzy) if entry.definition]
